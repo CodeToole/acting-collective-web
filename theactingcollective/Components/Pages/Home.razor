@@ -1,0 +1,77 @@
+﻿@* ============================================================================
+   Home.razor  &mdash;  STATIC render (no @rendermode here).
+   The page itself is static/SEO-friendly. Only the <RegistrationForm/> below
+   is an interactive island via @rendermode="InteractiveServer".
+
+   PORTING NOTE: paste the section markup from your existing index.html between
+   the marked comments. It's plain HTML, so it drops straight in. I've kept the
+   hero + register wrapper here to show the pattern; copy the rest (upcoming,
+   pathway, about, films, instructors, faq, footer) verbatim from index.html.
+   Only two things change vs. the static file:
+     1. The <form id="registerForm"> block is REPLACED by <RegistrationForm/>.
+     2. Nav/FAQ/film JS is replaced by Blazor later (Step 5) &mdash; static markup
+        renders fine without it for now.
+   ============================================================================ *@
+
+@page "/"
+@using theactingcollective.Components.Shared
+
+<PageTitle>The Acting Collective &mdash; Powered by Ziare</PageTitle>
+
+<HeadContent>
+    <meta name="description" content="The Acting Collective: hands-on acting training and filmmaker talent development in Mobile, Alabama. Powered by Ziare Perryman (Push). Reserve your spot for August 30, 2026." />
+</HeadContent>
+
+@* ---------- HERO (static) ---------- *@
+<section class="hero" id="home">
+    <div class="container hero__inner">
+        <p class="eyebrow">Powered by Ziare</p>
+        <h1>The Acting<br />Collective</h1>
+        <p class="hero__tag">A direct pipeline from training to real film credits.</p>
+
+        <div class="hero__meta">
+            <div class="hero__meta-item">
+                <div>
+                    <span class="label">Date &amp; Time</span>
+                    <span class="value">August 30, 2026 &middot; 6:00&ndash;9:00 PM</span>
+                </div>
+            </div>
+            <div class="hero__meta-item">
+                <div>
+                    <span class="label">Location</span>
+                    <span class="value">350 N Broad St., Suite A &middot; Mobile, AL</span>
+                </div>
+            </div>
+            <div class="hero__meta-item">
+                <div>
+                    <span class="label">Format</span>
+                    <span class="value">In-person immersive session</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="hero__cta">
+            <a href="#register" class="btn btn--gold">Reserve Your Spot &rarr;</a>
+            <a href="#experience" class="btn btn--ghost">Explore the Experience</a>
+        </div>
+    </div>
+</section>
+
+@* ========================================================================
+   PASTE FROM index.html HERE:
+     #upcoming, #experience (pathway), #about, #films, #instructors
+   They are plain static HTML &mdash; copy them verbatim.
+   ======================================================================== *@
+
+@* ---------- REGISTRATION (interactive island) ---------- *@
+<section class="section register" id="register">
+    <div class="container">
+        <RegistrationForm @rendermode="InteractiveServer" />
+    </div>
+</section>
+
+@* ========================================================================
+   PASTE FROM index.html HERE: #faq section (static markup is fine for now)
+   ======================================================================== *@
+
+

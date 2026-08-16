@@ -1,0 +1,218 @@
+﻿@page "/staff"
+@rendermode InteractiveServer
+@using theactingcollective.Models
+@using theactingcollective.Services
+@inject IRegistrationStore Store
+@inject IJSRuntime JS
+
+<PageTitle>Staff Dashboard &mdash; The Acting Collective</PageTitle>
+
+<div class="staff-body">
+    <header class="staff-header">
+        <div class="brand"><span class="logo-badge">Z</span> The Acting Collective</div>
+        <span class="rec"><span class="dot"></span> REC @DateTime.Now.ToString("HH:mm:ss")</span>
+    </header>
+
+    <main class="staff-main">
+        <div class="staff-title"><h1>Acting Collective Class Check-In</h1></div>
+        <p class="staff-sub">August 30, 2026 &nbsp;|&nbsp; 6:00 &ndash; 9:00 PM CDT</p>
+
+        <div class="stat-grid">
+            <div class="stat">
+                <div class="stat__label">Total Registered <span>@TotalRegistered</span></div>
+                <div class="stat__num">@TotalRegistered</div>
+            </div>
+            <div class="stat stat--active">
+                <div class="stat__label">Checked In <span>@CheckedInCount</span></div>
+                <div class="stat__num">@CheckedInCount</div>
+            </div>
+            <div class="stat">
+                <div class="stat__label">Not Yet Arrived <span>@PendingCount</span></div>
+                <div class="stat__num">@PendingCount</div>
+            </div>
+            <div class="stat stat--walkin">
+                <div class="stat__label">Walk-Ins <span>@WalkInCount</span></div>
+                <div class="stat__num">@WalkInCount</div>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <div class="search">
+                <input type="search" value="@_search" @oninput="OnSearchChanged" placeholder="Search by name or email..." />
+            </div>
+
+            <button class='@( _filter == "all" ? "filter-btn is-active" : "filter-btn" )' @onclick='() => SetFilter("all")'>All (@AllCount)</button>
+            <button class='@( _filter == "in" ? "filter-btn is-active" : "filter-btn" )' @onclick='() => SetFilter("in")'>Checked In (@CheckedInCount)</button>
+            <button class='@( _filter == "pending" ? "filter-btn is-active" : "filter-btn" )' @onclick='() => SetFilter("pending")'>Pending (@PendingCount)</button>
+
+            <button class="btn btn--blue" @onclick="RegisterWalkInAsync">&#43; Register Walk-In</button>
+        </div>
+
+        <div class="table-wrap">
+            <table class="roster">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email / Phone</th>
+                        <th>Reg Type</th>
+                        <th>Status / Time</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in FilteredRows)
+                    {
+                        <tr>
+                            <td>
+                                <div class="person">
+                                    <div class="person__avatar">@row.Initials</div>
+                                    <span>@row.FullName</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="contact-email">@row.Email</div>
+                                <div class="contact-phone">@row.Phone</div>
+                            </td>
+                            <td>
+                                <span class="reg-type @(row.RegType == "walkin" ? "reg-type--walkin" : "")">
+                                    @GetRegTypeLabel(row.RegType)
+                                </span>
+                            </td>
+                            <td>
+                                @if (row.CheckedIn)
+                                {
+                                    <div class="status status--in">
+                                        <span class="dot"></span>
+                                        Checked In
+                                        <time>@(row.CheckedInAt?.ToLocalTime().ToString("h:mm tt") ?? "--:--")</time>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="status status--pending">
+                                        <span class="dot"></span>
+                                        Pending
+                                        <time>--:--</time>
+                                    </div>
+                                }
+                            </td>
+                            <td>
+                                <div class="row-action">
+                                    @if (row.CheckedIn)
+                                    {
+                                        <span class="action-done">&#10003; Done</span>
+                                    }
+                                    else
+                                    {
+                                        <button class="action-checkin" @onclick="() => CheckInAsync(row)">Check In</button>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="table-foot">Showing @FilteredRows.Count of @TotalRegistered</div>
+    </main>
+</div>
+
+@code {
+    private List<Registration> _all = new();
+    private string _filter = "all";
+    private string _search = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+    }
+
+    private int TotalRegistered => _all.Count;
+    private int CheckedInCount => _all.Count(x => x.CheckedIn);
+    private int PendingCount => _all.Count(x => !x.CheckedIn);
+    private int WalkInCount => _all.Count(x => x.RegType == "walkin");
+    private int AllCount => _all.Count;
+
+    private List<Registration> FilteredRows
+    {
+        get
+        {
+            var query = _all.AsEnumerable();
+
+            if (_filter == "in")
+            {
+                query = query.Where(x => x.CheckedIn);
+            }
+            else if (_filter == "pending")
+            {
+                query = query.Where(x => !x.CheckedIn);
+            }
+
+            if (!string.IsNullOrWhiteSpace(_search))
+            {
+                var search = _search.Trim();
+                query = query.Where(x =>
+                    x.FullName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                    x.Email.Contains(search, StringComparison.OrdinalIgnoreCase));
+            }
+
+            return query.ToList();
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        _all = (await Store.GetAllAsync()).ToList();
+    }
+
+    private async Task CheckInAsync(Registration row)
+    {
+        await Store.CheckInAsync(row.Id);
+        await ReloadAsync();
+    }
+
+    private void SetFilter(string filter)
+    {
+        _filter = filter;
+    }
+
+    private string GetFilterClass(string filter)
+    {
+        return _filter == filter ? "filter-btn is-active" : "filter-btn";
+    }
+
+    private async Task RegisterWalkInAsync()
+    {
+        var name = await PromptForNameAsync();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return;
+        }
+
+        await Store.AddWalkInAsync(name, null);
+        await ReloadAsync();
+    }
+
+    private async Task<string?> PromptForNameAsync()
+    {
+        return await JS.InvokeAsync<string?>("prompt", "Enter the walk-in guest name:");
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? string.Empty;
+    }
+
+    private static string GetRegTypeLabel(string regType)
+    {
+        return regType switch
+        {
+            "vip" => "[VIP_ACCESS]",
+            "walkin" => "[WALK_IN]",
+            _ => "[STANDARD]"
+        };
+    }
+}
+
+

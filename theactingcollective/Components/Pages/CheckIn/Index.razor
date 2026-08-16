@@ -1,0 +1,171 @@
+﻿@page "/check-in"
+@rendermode InteractiveServer
+@using theactingcollective.Models
+@using theactingcollective.Services
+@inject IRegistrationStore Store
+
+@* ============================================================================
+   CheckIn/Index.razor  -  route: /check-in
+   The QR-code destination for class day. INTERACTIVE (needs live state).
+   5 states: Lookup -> Found | NotFound | AlreadyIn | Success.
+   Wired to IRegistrationStore (in-memory now, Azure Table later).
+
+   Mobile-first. All punctuation uses HTML entities to stay encoding-proof.
+   ============================================================================ *@
+
+<PageTitle>Check-In &mdash; The Acting Collective</PageTitle>
+
+<div class="checkin-body">
+
+    <header class="checkin-header">
+        <div class="brand">The Acting<br />Collective</div>
+        <span class="timecode">&#9727; @DateTime.Now.ToString("HH:mm:ss")</span>
+    </header>
+
+    <main class="checkin-main">
+        <div class="checkin-card">
+
+            @switch (_state)
+            {
+                case CheckInState.Lookup:
+                    <span class="scene">[ Scene: Check-In ]</span>
+                    <h1>Welcome to<br />The Acting Collective</h1>
+
+                    <EditForm Model="_lookupModel" OnValidSubmit="HandleLookupAsync">
+                        <div class="field @(_lookupError ? "has-error" : "")">
+                            <label for="lookup">Email or Mobile Number</label>
+                            <InputText id="lookup" class="input" @bind-Value="_lookupModel.Value"
+                                       placeholder="Enter details&hellip;" autocomplete="off" />
+                            @if (_lookupError)
+                            {
+                                <span class="form-error" style="display:block;">
+                                    Enter the email or phone used at registration.
+                                </span>
+                            }
+                        </div>
+                        <button type="submit" class="btn btn--gold btn--block" disabled="@_busy">
+                            @(_busy ? "Searching&hellip;" : "Find My Registration")
+                        </button>
+                    </EditForm>
+                    break;
+
+                case CheckInState.Found:
+                    <span class="result__badge result__badge--found">&#9679; Registration Found</span>
+                    <div class="result__name">@_match!.FullName</div>
+                    <p class="result__detail">August 30, 2026</p>
+                    <p class="result__detail">6:00 &ndash; 9:00 PM &middot; CDT</p>
+                    <p class="result__detail">350 N Broad St., Suite A &middot; Mobile, AL</p>
+                    <button class="btn btn--gold btn--block" style="margin-top:24px;"
+                            @onclick="ConfirmCheckInAsync" disabled="@_busy">
+                        Confirm &amp; Check In
+                    </button>
+                    <button class="btn btn--ghost btn--block" style="margin-top:12px;"
+                            @onclick="Reset">Back</button>
+                    break;
+
+                case CheckInState.NotFound:
+                    <span class="result__badge result__badge--none">&#9679; No Registration Found</span>
+                    <p class="result__detail" style="margin-bottom:22px;">
+                        We couldn&rsquo;t find that email or number. You can still join us as a walk-in.
+                    </p>
+                    <button class="btn btn--gold btn--block" @onclick="WalkInAsync" disabled="@_busy">
+                        Register as a Walk-In
+                    </button>
+                    <button class="btn btn--ghost btn--block" style="margin-top:12px;"
+                            @onclick="Reset">Try Again</button>
+                    break;
+
+                case CheckInState.AlreadyIn:
+                    <span class="result__badge result__badge--done">&#9679; Already Checked In</span>
+                    <div class="result__name">@_match!.FullName</div>
+                    <p class="result__detail">You&rsquo;re already on the call sheet for today.</p>
+                    @if (_match.CheckedInAt is not null)
+                    {
+                        <p class="result__detail" style="color:var(--gold);">
+                            Checked in at @_match.CheckedInAt.Value.ToString("h:mm tt")
+                        </p>
+                    }
+                    <button class="btn btn--ghost btn--block" style="margin-top:22px;"
+                            @onclick="Reset">Done</button>
+                    break;
+
+                case CheckInState.Success:
+                    <div class="result__icon">&#10003;</div>
+                    <div class="result__name">You&rsquo;re Checked In</div>
+                    <p class="result__detail">Welcome to The Acting Collective.</p>
+                    <p class="result__detail" style="color:var(--gold);">@_successMessage</p>
+                    <button class="btn btn--ghost btn--block" style="margin-top:24px;"
+                            @onclick="Reset">Check In Another Person</button>
+                    break;
+            }
+
+        </div>
+    </main>
+
+    <footer class="checkin-footer">
+        <div class="container">
+            <div class="brand">The Acting Collective</div>
+            <p class="footer__legal" style="margin-top:20px;">
+                &copy; 2026 The Acting Collective &middot; Powered by Ziare
+            </p>
+        </div>
+    </footer>
+
+</div>
+
+@code {
+    private enum CheckInState { Lookup, Found, NotFound, AlreadyIn, Success }
+
+    // Small model so EditForm has something to bind + validate against.
+    private sealed class LookupModel { public string Value { get; set; } = string.Empty; }
+
+    private CheckInState _state = CheckInState.Lookup;
+    private LookupModel _lookupModel = new();
+    private Registration? _match;
+    private string _successMessage = string.Empty;
+    private bool _lookupError;
+    private bool _busy;
+
+    private async Task HandleLookupAsync()
+    {
+        _lookupError = string.IsNullOrWhiteSpace(_lookupModel.Value);
+        if (_lookupError) return;
+
+        _busy = true;
+        _match = await Store.FindByContactAsync(_lookupModel.Value);
+        _busy = false;
+
+        _state = _match is null
+            ? CheckInState.NotFound
+            : _match.CheckedIn ? CheckInState.AlreadyIn : CheckInState.Found;
+    }
+
+    private async Task ConfirmCheckInAsync()
+    {
+        if (_match is null) return;
+        _busy = true;
+        await Store.CheckInAsync(_match.Id);
+        _busy = false;
+        _successMessage = $"Checked in at {DateTime.Now:h:mm tt}";
+        _state = CheckInState.Success;
+    }
+
+    private async Task WalkInAsync()
+    {
+        _busy = true;
+        // The typed value becomes the walk-in's contact so staff can match later.
+        await Store.AddWalkInAsync("Walk-In Guest", _lookupModel.Value);
+        _busy = false;
+        _successMessage = $"Walk-in checked in at {DateTime.Now:h:mm tt}";
+        _state = CheckInState.Success;
+    }
+
+    private void Reset()
+    {
+        _state = CheckInState.Lookup;
+        _lookupModel = new();
+        _match = null;
+        _lookupError = false;
+        _successMessage = string.Empty;
+    }
+}

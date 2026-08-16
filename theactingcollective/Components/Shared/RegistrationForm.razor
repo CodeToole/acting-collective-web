@@ -1,0 +1,112 @@
+﻿@* ============================================================================
+   RegistrationForm.razor  &mdash;  the INTERACTIVE ISLAND.
+   Lives on the otherwise-static Home page. Only this component opens a
+   SignalR circuit. Uses EditForm + DataAnnotations for server-side validation.
+   ============================================================================ *@
+
+@using theactingcollective.Models
+@using theactingcollective.Services
+@inject IRegistrationStore Store
+
+<div class="form-panel">
+    @if (!_submitted)
+    {
+        <EditForm Model="_model" OnValidSubmit="HandleSubmitAsync">
+            <DataAnnotationsValidator />
+
+            <p class="eyebrow" style="text-align:center;">[ Secure Your Spot ]</p>
+            <h2>Registration</h2>
+            <p class="sub">Space is strictly limited to ensure individualized attention.</p>
+
+            <div class="field-row">
+                <div class="field">
+                    <label for="firstName">First Name</label>
+                    <InputText id="firstName" class="input" @bind-Value="_model.FirstName"
+                               placeholder="Enter your first name" />
+                    <ValidationMessage For="() => _model.FirstName" class="form-error" style="display:block;" />
+                </div>
+                <div class="field">
+                    <label for="lastName">Last Name</label>
+                    <InputText id="lastName" class="input" @bind-Value="_model.LastName"
+                               placeholder="Enter your last name" />
+                    <ValidationMessage For="() => _model.LastName" class="form-error" style="display:block;" />
+                </div>
+            </div>
+
+            <div class="field-row">
+                <div class="field">
+                    <label for="email">Email Address</label>
+                    <InputText id="email" class="input" @bind-Value="_model.Email"
+                               placeholder="actor@example.com" />
+                    <ValidationMessage For="() => _model.Email" class="form-error" style="display:block;" />
+                </div>
+                <div class="field">
+                    <label for="phone">Mobile Phone</label>
+                    <InputText id="phone" class="input" @bind-Value="_model.Phone"
+                               placeholder="(251) 000-0000" />
+                    <ValidationMessage For="() => _model.Phone" class="form-error" style="display:block;" />
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="experience">Experience Level</label>
+                <InputSelect id="experience" class="input" @bind-Value="_model.ExperienceLevel">
+                    <option value="" disabled selected>Select your current level</option>
+                    @foreach (var level in Registration.ExperienceLevels)
+                    {
+                        <option value="@level">@level</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="() => _model.ExperienceLevel" class="form-error" style="display:block;" />
+            </div>
+
+            <div class="field">
+                <label for="referral">How Did You Hear About Us? <span style="text-transform:none;letter-spacing:0;">(optional)</span></label>
+                <InputText id="referral" class="input" @bind-Value="_model.Referral"
+                           placeholder="Instagram, a friend, the flyer..." />
+            </div>
+
+            <div class="check">
+                <InputCheckbox id="ageConfirm" @bind-Value="_model.AgeConfirmed" />
+                <label for="ageConfirm">I confirm that I am 18 years of age or older.</label>
+            </div>
+            <ValidationMessage For="() => _model.AgeConfirmed" class="form-error" style="display:block;" />
+
+            <div class="check">
+                <InputCheckbox id="commsConsent" @bind-Value="_model.CommsConsent" />
+                <label for="commsConsent">I agree to receive class-related communication by email or text.</label>
+            </div>
+            <ValidationMessage For="() => _model.CommsConsent" class="form-error" style="display:block;" />
+
+            <button type="submit" class="btn btn--gold btn--block" disabled="@_busy">
+                @(_busy ? "Submitting..." : "Complete Registration")
+            </button>
+        </EditForm>
+    }
+    else
+    {
+        <div class="form-success is-visible" role="status" aria-live="polite">
+            <div class="icon">&#10003;</div>
+            <h2 style="font-size:1.8rem;">You're on the Call Sheet</h2>
+            <p class="muted">
+                Thanks, @_model.FirstName. Your registration has been received.
+                Check your email or phone for event details and class-day check-in instructions.
+            </p>
+        </div>
+    }
+</div>
+
+@code {
+    private Registration _model = new();
+    private bool _submitted;
+    private bool _busy;
+
+    private async Task HandleSubmitAsync()
+    {
+        _busy = true;
+        await Store.AddAsync(_model);   // in-memory now; Azure Table later
+        _busy = false;
+        _submitted = true;
+    }
+}
+
