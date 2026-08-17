@@ -19,18 +19,35 @@ public class AzureTableRegistrationStore : IRegistrationStore
 
     private readonly TableClient _table;
     private readonly TableClient _waitlistTable;
+    private readonly ILogger<AzureTableRegistrationStore> _logger;
 
-    public AzureTableRegistrationStore(IConfiguration configuration)
+    public AzureTableRegistrationStore(IConfiguration configuration, ILogger<AzureTableRegistrationStore> logger)
     {
-        var connectionString = configuration.GetConnectionString("TableStorage")
-            ?? throw new InvalidOperationException(
-                "Missing 'TableStorage' connection string. Add it under ConnectionStrings in appsettings.");
+        _logger = logger;
 
-        _table = new TableClient(connectionString, TableName);
-        _table.CreateIfNotExists();
+        try
+        {
+            var connectionString = configuration.GetConnectionString("TableStorage")
+                ?? throw new InvalidOperationException(
+                    "Missing 'TableStorage' connection string. Add it under ConnectionStrings in appsettings.");
 
-        _waitlistTable = new TableClient(connectionString, WaitlistTableName);
-        _waitlistTable.CreateIfNotExists();
+            _table = new TableClient(connectionString, TableName);
+            _table.CreateIfNotExists();
+
+            _waitlistTable = new TableClient(connectionString, WaitlistTableName);
+            _waitlistTable.CreateIfNotExists();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogCritical(
+                ex,
+                "Startup storage initialization failed in {Component}. Exception type: {ExceptionType}. Message: {ExceptionMessage}. Stack trace: {StackTrace}",
+                nameof(AzureTableRegistrationStore),
+                ex.GetType().FullName,
+                ex.Message,
+                ex.StackTrace);
+            throw;
+        }
     }
 
     public async Task<Registration> AddAsync(Registration registration)
