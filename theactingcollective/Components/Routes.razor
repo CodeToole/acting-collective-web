@@ -1,17 +1,6 @@
 ﻿<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
     <Found Context="routeData">
-        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
-            <NotAuthorized>
-                <div class="container section" style="min-height: 60vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-                    <p class="eyebrow">[ Access Restricted ]</p>
-                    <h1 style="margin-bottom: 1rem;">Staff Authorization Required</h1>
-                    <p class="muted" style="max-width: 520px; margin-bottom: 2rem;">
-                        This dashboard is restricted to authorized Acting Collective staff. Please sign in with your Microsoft Entra ID organizational account.
-                    </p>
-                    <a href="MicrosoftIdentity/Account/SignIn?redirectUri=/staff" class="btn btn--gold">Sign In with Microsoft Entra ID</a>
-                </div>
-            </NotAuthorized>
-        </AuthorizeRouteView>
+        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>
