@@ -1,30 +1,15 @@
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.Identity.Web;
-using Microsoft.Identity.Web.UI;
 using theactingcollective.Components;
 using theactingcollective.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Microsoft Entra ID Authentication & Authorization
-builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
-    .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"));
+builder.Services.AddControllersWithViews();
 
-builder.Services.AddControllersWithViews()
-    .AddMicrosoftIdentityUI();
-
-builder.Services.AddAuthorization(options =>
-{
-    // Define dedicated Staff policy for the /staff route
-    options.AddPolicy("RequireStaffRole", policy =>
-    {
-        policy.RequireAuthenticatedUser();
-    });
-});
-
-builder.Services.AddCascadingAuthenticationState();
+// Temporary diagnostic deployment: leave all routes public.
+// Microsoft Identity registration and staff authorization policy are intentionally disabled.
 
 // Add services to the container.
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddSingleton<IRegistrationStore, AzureTableRegistrationStore>();
@@ -43,9 +28,6 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
-app.UseAuthentication();
-app.UseAuthorization();
-
 app.UseAntiforgery();
 
 app.MapControllers();
@@ -54,3 +36,4 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
