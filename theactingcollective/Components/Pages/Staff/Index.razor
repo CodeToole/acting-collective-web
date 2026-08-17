@@ -1,156 +1,376 @@
-﻿@page "/staff"
+@page "/staff"
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @using theactingcollective.Models
 @using theactingcollective.Services
 @inject IRegistrationStore Store
 @inject IJSRuntime JS
+@inject ProtectedSessionStorage SessionStorage
+@inject IConfiguration Configuration
 
 <PageTitle>Staff Dashboard &mdash; The Acting Collective</PageTitle>
 
-<div class="staff-body">
-    <header class="staff-header">
-        <div class="brand"><span class="logo-badge">Z</span> The Acting Collective</div>
-        <span class="rec"><span class="dot"></span> REC @DateTime.Now.ToString("HH:mm:ss")</span>
-    </header>
-
-    <main class="staff-main">
-        <div class="staff-title"><h1>Acting Collective Class Check-In</h1></div>
-        <p class="staff-sub">August 30, 2026 &nbsp;|&nbsp; 6:00 &ndash; 9:00 PM CDT</p>
-
-        <div class="stat-grid">
-            <div class="stat">
-                <div class="stat__label">Total Registered <span>@TotalRegistered</span></div>
-                <div class="stat__num">@TotalRegistered</div>
+@if (_isUnlocked)
+{
+    <div class="staff-body">
+        <header class="staff-header">
+            <div class="brand"><span class="logo-badge">Z</span> The Acting Collective</div>
+            <div class="staff-header-actions">
+                <span class="rec"><span class="dot"></span> REC @DateTime.Now.ToString("HH:mm:ss")</span>
+                <button class="staff-lockout" @onclick="LogoutAsync">Lock</button>
             </div>
-            <div class="stat stat--active">
-                <div class="stat__label">Checked In <span>@CheckedInCount</span></div>
-                <div class="stat__num">@CheckedInCount</div>
-            </div>
-            <div class="stat">
-                <div class="stat__label">Not Yet Arrived <span>@PendingCount</span></div>
-                <div class="stat__num">@PendingCount</div>
-            </div>
-            <div class="stat stat--walkin">
-                <div class="stat__label">Walk-Ins <span>@WalkInCount</span></div>
-                <div class="stat__num">@WalkInCount</div>
-            </div>
-            <div class="stat stat--active">
-                <div class="stat__label">Paid <span>@PaidCount</span></div>
-                <div class="stat__num">@PaidCount</div>
-            </div>
-        </div>
+        </header>
 
-        <div class="toolbar">
-            <div class="search">
-                <input type="search" value="@_search" @oninput="OnSearchChanged" placeholder="Search by name or email..." />
+        <main class="staff-main">
+            <div class="staff-title"><h1>Acting Collective Class Check-In</h1></div>
+            <p class="staff-sub">August 30, 2026 &nbsp;|&nbsp; 6:00 &ndash; 9:00 PM CDT</p>
+
+            <div class="stat-grid">
+                <div class="stat">
+                    <div class="stat__label">Total Registered <span>@TotalRegistered</span></div>
+                    <div class="stat__num">@TotalRegistered</div>
+                </div>
+                <div class="stat stat--active">
+                    <div class="stat__label">Checked In <span>@CheckedInCount</span></div>
+                    <div class="stat__num">@CheckedInCount</div>
+                </div>
+                <div class="stat">
+                    <div class="stat__label">Not Yet Arrived <span>@PendingCount</span></div>
+                    <div class="stat__num">@PendingCount</div>
+                </div>
+                <div class="stat stat--walkin">
+                    <div class="stat__label">Walk-Ins <span>@WalkInCount</span></div>
+                    <div class="stat__num">@WalkInCount</div>
+                </div>
+                <div class="stat stat--active">
+                    <div class="stat__label">Paid <span>@PaidCount</span></div>
+                    <div class="stat__num">@PaidCount</div>
+                </div>
             </div>
 
-            <button class='@( _filter == "all" ? "filter-btn is-active" : "filter-btn" )' @onclick='() => SetFilter("all")'>All (@AllCount)</button>
-            <button class='@( _filter == "in" ? "filter-btn is-active" : "filter-btn" )' @onclick='() => SetFilter("in")'>Checked In (@CheckedInCount)</button>
-            <button class='@( _filter == "pending" ? "filter-btn is-active" : "filter-btn" )' @onclick='() => SetFilter("pending")'>Pending (@PendingCount)</button>
+            <div class="toolbar">
+                <div class="search">
+                    <input type="search" value="@_search" @oninput="OnSearchChanged" placeholder="Search by name or email..." />
+                </div>
 
-            <button class="btn btn--blue" @onclick="RegisterWalkInAsync">&#43; Register Walk-In</button>
-        </div>
+                <button class='@( _filter == "all" ? "filter-btn is-active" : "filter-btn" )' @onclick='() => SetFilter("all")'>All (@AllCount)</button>
+                <button class='@( _filter == "in" ? "filter-btn is-active" : "filter-btn" )' @onclick='() => SetFilter("in")'>Checked In (@CheckedInCount)</button>
+                <button class='@( _filter == "pending" ? "filter-btn is-active" : "filter-btn" )' @onclick='() => SetFilter("pending")'>Pending (@PendingCount)</button>
 
-        <div class="table-wrap">
-            <table class="roster">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Email / Phone</th>
-                        <th>Reg Type</th>
-                        <th>Status / Time</th>
-                        <th>Payment</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var row in FilteredRows)
-                    {
+                <button class="btn btn--blue" @onclick="RegisterWalkInAsync">&#43; Register Walk-In</button>
+            </div>
+
+            <div class="table-wrap">
+                <table class="roster">
+                    <thead>
                         <tr>
-                            <td>
-                                <div class="person">
-                                    <div class="person__avatar">@row.Initials</div>
-                                    <span>@row.FullName</span>
-                                </div>
-                            </td>
-                            <td>
-                                <div class="contact-email">@row.Email</div>
-                                <div class="contact-phone">@row.Phone</div>
-                            </td>
-                            <td>
-                                <span class="reg-type @(row.RegType == "walkin" ? "reg-type--walkin" : "")">
-                                    @GetRegTypeLabel(row.RegType)
-                                </span>
-                            </td>
-                            <td>
-                                @if (row.CheckedIn)
-                                {
-                                    <div class="status status--in">
-                                        <span class="dot"></span>
-                                        Checked In
-                                        <time>@(row.CheckedInAt?.ToLocalTime().ToString("h:mm tt") ?? "--:--")</time>
+                            <th>Name</th>
+                            <th>Email / Phone</th>
+                            <th>Reg Type</th>
+                            <th>Status / Time</th>
+                            <th>Payment</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in FilteredRows)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="person">
+                                        <div class="person__avatar">@row.Initials</div>
+                                        <span>@row.FullName</span>
                                     </div>
-                                }
-                                else
-                                {
-                                    <div class="status status--pending">
-                                        <span class="dot"></span>
-                                        Pending
-                                        <time>--:--</time>
-                                    </div>
-                                }
-                            </td>
-                            <td>
-                                @if (row.Paid)
-                                {
-                                    <div class="status status--in">
-                                        <span class="dot"></span>
-                                        Paid
-                                        <time>@(row.PaidAt?.ToLocalTime().ToString("h:mm tt") ?? "--:--")</time>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <div class="status status--pending">
-                                        <span class="dot"></span>
-                                        Unpaid
-                                    </div>
-                                }
-                                <button class="action-checkin" @onclick="() => TogglePaidAsync(row)">
-                                    Mark @(row.Paid ? "Unpaid" : "Paid")
-                                </button>
-                            </td>
-                            <td>
-                                <div class="row-action">
+                                </td>
+                                <td>
+                                    <div class="contact-email">@row.Email</div>
+                                    <div class="contact-phone">@row.Phone</div>
+                                </td>
+                                <td>
+                                    <span class="reg-type @(row.RegType == "walkin" ? "reg-type--walkin" : "")">
+                                        @GetRegTypeLabel(row.RegType)
+                                    </span>
+                                </td>
+                                <td>
                                     @if (row.CheckedIn)
                                     {
-                                        <span class="action-done">&#10003; Done</span>
+                                        <div class="status status--in">
+                                            <span class="dot"></span>
+                                            Checked In
+                                            <time>@(row.CheckedInAt?.ToLocalTime().ToString("h:mm tt") ?? "--:--")</time>
+                                        </div>
                                     }
                                     else
                                     {
-                                        <button class="action-checkin" @onclick="() => CheckInAsync(row)">Check In</button>
+                                        <div class="status status--pending">
+                                            <span class="dot"></span>
+                                            Pending
+                                            <time>--:--</time>
+                                        </div>
                                     }
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+                                </td>
+                                <td>
+                                    @if (row.Paid)
+                                    {
+                                        <div class="status status--in">
+                                            <span class="dot"></span>
+                                            Paid
+                                            <time>@(row.PaidAt?.ToLocalTime().ToString("h:mm tt") ?? "--:--")</time>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="status status--pending">
+                                            <span class="dot"></span>
+                                            Unpaid
+                                        </div>
+                                    }
+                                    <button class="action-checkin" @onclick="() => TogglePaidAsync(row)">
+                                        Mark @(row.Paid ? "Unpaid" : "Paid")
+                                    </button>
+                                </td>
+                                <td>
+                                    <div class="row-action">
+                                        @if (row.CheckedIn)
+                                        {
+                                            <span class="action-done">&#10003; Done</span>
+                                        }
+                                        else
+                                        {
+                                            <button class="action-checkin" @onclick="() => CheckInAsync(row)">Check In</button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
 
-        <div class="table-foot">Showing @FilteredRows.Count of @TotalRegistered</div>
-    </main>
-</div>
+            <div class="table-foot">Showing @FilteredRows.Count of @TotalRegistered</div>
+        </main>
+    </div>
+}
+else
+{
+    <div class="staff-password-shell">
+        <div class="staff-password-card">
+            <div class="staff-password-badge">Z</div>
+            <h1>Staff access</h1>
+            <p>Enter the staff passcode to continue to the check-in dashboard.</p>
+
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <div class="staff-password-error">@_error</div>
+            }
+
+            <label class="staff-password-field">
+                <span>Passcode</span>
+                <input type="password" @bind="_passcode" @bind:event="oninput" @onkeydown="OnPasscodeKeyDown" placeholder="Enter passcode" />
+            </label>
+
+            <button class="staff-password-button" @onclick="UnlockAsync" disabled="@_isSubmitting">
+                @( _isSubmitting ? "Unlocking..." : "Unlock" )
+            </button>
+        </div>
+    </div>
+}
+
+<style>
+    :root {
+        --staff-gate-bg: #0d1117;
+        --staff-gate-panel: rgba(15, 23, 42, 0.9);
+        --staff-gate-border: rgba(255, 255, 255, 0.12);
+        --staff-gate-gold: #d4a75c;
+        --staff-gate-text: #f7f1e8;
+        --staff-gate-muted: #c8d0da;
+        --staff-gate-error: #ffb4b4;
+    }
+
+    .staff-password-shell {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at top, rgba(212, 167, 92, 0.14), transparent 40%), var(--bg, var(--staff-gate-bg));
+        padding: 2rem;
+    }
+
+    .staff-password-card {
+        width: min(100%, 420px);
+        background: var(--staff-gate-panel);
+        border: 1px solid var(--border, var(--staff-gate-border));
+        border-radius: 24px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.2);
+        padding: 2rem 1.5rem 1.5rem;
+        color: var(--staff-gate-text);
+    }
+
+    .staff-password-badge {
+        width: 54px;
+        height: 54px;
+        display: grid;
+        place-items: center;
+        border-radius: 16px;
+        background: rgba(212, 167, 92, 0.14);
+        border: 1px solid rgba(212, 167, 92, 0.3);
+        color: var(--gold, var(--staff-gate-gold));
+        font-family: var(--font-display, serif);
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin: 0 auto 1rem;
+    }
+
+    .staff-password-card h1 {
+        margin: 0;
+        text-align: center;
+        font-size: clamp(2rem, 2vw, 2.4rem);
+        font-family: var(--font-display, serif);
+    }
+
+    .staff-password-card p {
+        margin: 0.75rem 0 1.5rem;
+        text-align: center;
+        color: var(--staff-gate-muted);
+        line-height: 1.5;
+    }
+
+    .staff-password-field {
+        display: block;
+        margin-bottom: 1rem;
+    }
+
+    .staff-password-field span {
+        display: inline-block;
+        margin-bottom: 0.5rem;
+        font-size: 0.8rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--staff-gate-muted);
+    }
+
+    .staff-password-field input {
+        width: 100%;
+        padding: 0.9rem 1rem;
+        border-radius: 12px;
+        border: 1px solid var(--border, var(--staff-gate-border));
+        background: rgba(9, 12, 16, 0.35);
+        color: var(--staff-gate-text);
+        font-size: 1rem;
+        box-sizing: border-box;
+    }
+
+    .staff-password-button {
+        width: 100%;
+        border: 0;
+        border-radius: 12px;
+        background: var(--gold, var(--staff-gate-gold));
+        color: #1e1d19;
+        font-weight: 700;
+        padding: 0.9rem 1rem;
+        cursor: pointer;
+    }
+
+    .staff-password-button:disabled {
+        opacity: 0.7;
+        cursor: wait;
+    }
+
+    .staff-password-error {
+        margin-bottom: 1rem;
+        padding: 0.8rem 0.9rem;
+        border-radius: 10px;
+        background: rgba(255, 180, 180, 0.08);
+        color: var(--staff-gate-error);
+        border: 1px solid rgba(255, 180, 180, 0.25);
+    }
+
+    .staff-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .staff-lockout {
+        border: 1px solid var(--border, var(--staff-gate-border));
+        background: transparent;
+        border-radius: 999px;
+        color: var(--text, var(--staff-gate-text));
+        padding: 0.45rem 0.9rem;
+        cursor: pointer;
+    }
+</style>
 
 @code {
+    private const string SessionKey = "staff-passcode-unlocked";
     private List<Registration> _all = new();
     private string _filter = "all";
     private string _search = string.Empty;
+    private string _passcode = string.Empty;
+    private string? _error;
+    private bool _isUnlocked;
+    private bool _isSubmitting;
 
     protected override async Task OnInitializedAsync()
     {
-        await ReloadAsync();
+        var result = await SessionStorage.GetAsync<bool>(SessionKey);
+        _isUnlocked = result.Success && result.Value;
+
+        if (_isUnlocked)
+        {
+            await ReloadAsync();
+        }
+    }
+
+    private string GetConfiguredPasscode()
+    {
+        return Configuration["Staff:Passcode"]
+            ?? Configuration["Staff__Passcode"]
+            ?? Environment.GetEnvironmentVariable("Staff__Passcode")
+            ?? string.Empty;
+    }
+
+    private async Task UnlockAsync()
+    {
+        _error = null;
+
+        var configuredPasscode = GetConfiguredPasscode();
+        if (string.IsNullOrWhiteSpace(configuredPasscode))
+        {
+            _error = "Staff access is not configured. Add a Staff:Passcode or Staff__Passcode value.";
+            return;
+        }
+
+        _isSubmitting = true;
+
+        if (string.Equals(_passcode, configuredPasscode, StringComparison.Ordinal))
+        {
+            await SessionStorage.SetAsync(SessionKey, true);
+            _isUnlocked = true;
+            _passcode = string.Empty;
+            await ReloadAsync();
+        }
+        else
+        {
+            _error = "Incorrect passcode. Please try again.";
+        }
+
+        _isSubmitting = false;
+    }
+
+    private async Task LogoutAsync()
+    {
+        await SessionStorage.DeleteAsync(SessionKey);
+        _isUnlocked = false;
+        _passcode = string.Empty;
+        _error = null;
+    }
+
+    private async Task OnPasscodeKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await UnlockAsync();
+        }
     }
 
     private int TotalRegistered => _all.Count;
@@ -248,3 +468,145 @@
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"}]} one replacement operation maybe huge; if fails due size perhaps but let's try. Need careful: I included very long trailing spaces? maybe not. Multi_replace tool with huge string can handle. But I may have inserted too much weird
