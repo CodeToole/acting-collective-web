@@ -13,9 +13,12 @@ namespace theactingcollective.Services;
 public class AzureTableRegistrationStore : IRegistrationStore
 {
     private const string TableName = "registrations";
+    private const string WaitlistTableName = "waitlist";
     private const string EventPartitionKey = "2026-08-30";
+    private const string WaitlistPartitionKey = "waitlist";
 
     private readonly TableClient _table;
+    private readonly TableClient _waitlistTable;
 
     public AzureTableRegistrationStore(IConfiguration configuration)
     {
@@ -25,6 +28,9 @@ public class AzureTableRegistrationStore : IRegistrationStore
 
         _table = new TableClient(connectionString, TableName);
         _table.CreateIfNotExists();
+
+        _waitlistTable = new TableClient(connectionString, WaitlistTableName);
+        _waitlistTable.CreateIfNotExists();
     }
 
     public async Task<Registration> AddAsync(Registration registration)
@@ -85,6 +91,26 @@ public class AzureTableRegistrationStore : IRegistrationStore
         return entity.ToRegistration();
     }
 
+    public async Task<Registration?> SetPaidAsync(string id, bool paid)
+    {
+        RegistrationEntity entity;
+        try
+        {
+            var response = await _table.GetEntityAsync<RegistrationEntity>(EventPartitionKey, id);
+            entity = response.Value;
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            return null;
+        }
+
+        entity.Paid = paid;
+        entity.PaidAt = paid ? DateTimeOffset.Now : null;
+
+        await _table.UpsertEntityAsync(entity, TableUpdateMode.Replace);
+        return entity.ToRegistration();
+    }
+
     public async Task<Registration> AddWalkInAsync(string fullName, string? contact)
     {
         var parts = fullName.Trim().Split(' ', 2);
@@ -104,6 +130,28 @@ public class AzureTableRegistrationStore : IRegistrationStore
 
         var entity = RegistrationEntity.FromRegistration(registration, EventPartitionKey);
         await _table.UpsertEntityAsync(entity, TableUpdateMode.Replace);
+        return registration;
+    }
+
+    public async Task<Registration> AddToWaitlistAsync(string name, string email)
+    {
+        var parts = (name ?? string.Empty).Trim().Split(' ', 2);
+        var registration = new Registration
+        {
+            FirstName = parts.ElementAtOrDefault(0) ?? name ?? string.Empty,
+            LastName = parts.ElementAtOrDefault(1) ?? string.Empty,
+            Email = (email ?? string.Empty).Trim(),
+            Phone = "N/A",
+            ExperienceLevel = "Newsletter",
+            RegType = "waitlist",
+            WantsNewsletter = true,
+            CommsConsent = true,
+            AgeConfirmed = true,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        var entity = RegistrationEntity.FromRegistration(registration, WaitlistPartitionKey);
+        await _waitlistTable.UpsertEntityAsync(entity, TableUpdateMode.Replace);
         return registration;
     }
 }

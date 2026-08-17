@@ -1,4 +1,5 @@
 ﻿@page "/staff"
+@attribute [Authorize(Policy = "RequireStaffRole")]
 @rendermode InteractiveServer
 @using theactingcollective.Models
 @using theactingcollective.Services
@@ -34,6 +35,10 @@
                 <div class="stat__label">Walk-Ins <span>@WalkInCount</span></div>
                 <div class="stat__num">@WalkInCount</div>
             </div>
+            <div class="stat stat--active">
+                <div class="stat__label">Paid <span>@PaidCount</span></div>
+                <div class="stat__num">@PaidCount</div>
+            </div>
         </div>
 
         <div class="toolbar">
@@ -56,6 +61,7 @@
                         <th>Email / Phone</th>
                         <th>Reg Type</th>
                         <th>Status / Time</th>
+                        <th>Payment</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -97,6 +103,26 @@
                                 }
                             </td>
                             <td>
+                                @if (row.Paid)
+                                {
+                                    <div class="status status--in">
+                                        <span class="dot"></span>
+                                        Paid
+                                        <time>@(row.PaidAt?.ToLocalTime().ToString("h:mm tt") ?? "--:--")</time>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="status status--pending">
+                                        <span class="dot"></span>
+                                        Unpaid
+                                    </div>
+                                }
+                                <button class="action-checkin" @onclick="() => TogglePaidAsync(row)">
+                                    Mark @(row.Paid ? "Unpaid" : "Paid")
+                                </button>
+                            </td>
+                            <td>
                                 <div class="row-action">
                                     @if (row.CheckedIn)
                                     {
@@ -132,6 +158,7 @@
     private int CheckedInCount => _all.Count(x => x.CheckedIn);
     private int PendingCount => _all.Count(x => !x.CheckedIn);
     private int WalkInCount => _all.Count(x => x.RegType == "walkin");
+    private int PaidCount => _all.Count(x => x.Paid);
     private int AllCount => _all.Count;
 
     private List<Registration> FilteredRows
@@ -169,6 +196,12 @@
     private async Task CheckInAsync(Registration row)
     {
         await Store.CheckInAsync(row.Id);
+        await ReloadAsync();
+    }
+
+    private async Task TogglePaidAsync(Registration row)
+    {
+        await Store.SetPaidAsync(row.Id, !row.Paid);
         await ReloadAsync();
     }
 

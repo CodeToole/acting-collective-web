@@ -7,6 +7,8 @@
 @using theactingcollective.Models
 @using theactingcollective.Services
 @inject IRegistrationStore Store
+@inject IEmailSender Email
+@inject ILogger<RegistrationForm> Logger
 
 <div class="form-panel">
     @if (!_submitted)
@@ -78,6 +80,11 @@
             </div>
             <ValidationMessage For="() => _model.CommsConsent" class="form-error" style="display:block;" />
 
+            <div class="check">
+                <InputCheckbox id="wantsNewsletter" @bind-Value="_model.WantsNewsletter" />
+                <label for="wantsNewsletter">Notify me about future classes and events.</label>
+            </div>
+
             <button type="submit" class="btn btn--gold btn--block" disabled="@_busy">
                 @(_busy ? "Submitting..." : "Complete Registration")
             </button>
@@ -104,8 +111,24 @@
     private async Task HandleSubmitAsync()
     {
         _busy = true;
-        await Store.AddAsync(_model);   // in-memory now; Azure Table later
-        _busy = false;
+        try
+        {
+            await Store.AddAsync(_model);
+
+            try
+            {
+                await Email.SendRegistrationConfirmationAsync(_model);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Registration saved but confirmation email failed for {Email}", _model.Email);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+
         _submitted = true;
     }
 }

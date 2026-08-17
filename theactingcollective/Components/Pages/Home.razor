@@ -14,7 +14,11 @@
    ============================================================================ *@
 
 @page "/"
+@rendermode InteractiveServer
+@implements IDisposable
 @using theactingcollective.Components.Shared
+@using theactingcollective.Services
+@inject IEventScheduleService Schedule
 
 <PageTitle>The Acting Collective &mdash; Powered by Ziare</PageTitle>
 
@@ -22,7 +26,7 @@
     <meta name="description" content="The Acting Collective: hands-on acting training and filmmaker talent development in Mobile, Alabama. Powered by Ziare Perryman (Push). Reserve your spot for August 30, 2026." />
 </HeadContent>
 
-@* ---------- HERO (static) ---------- *@
+@* ---------- HERO ---------- *@
 <section class="hero" id="home">
     <div class="container hero__inner">
         <p class="eyebrow">Powered by Ziare</p>
@@ -48,10 +52,37 @@
                     <span class="value">In-person immersive session</span>
                 </div>
             </div>
+            @if (_isOpen)
+            {
+                <div class="hero__meta-item">
+                    <div>
+                        <span class="label">Registration Closes In</span>
+                        <span class="value" style="color: var(--gold); font-family: 'SFMono-Regular', ui-monospace, monospace;">
+                            @($"{_timeRemaining.Days}d {_timeRemaining.Hours:D2}h {_timeRemaining.Minutes:D2}m {_timeRemaining.Seconds:D2}s")
+                        </span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="hero__meta-item">
+                    <div>
+                        <span class="label">Status</span>
+                        <span class="value" style="color: var(--gold-soft);">Registration Closed</span>
+                    </div>
+                </div>
+            }
         </div>
 
         <div class="hero__cta">
-            <a href="#register" class="btn btn--gold">Reserve Your Spot &rarr;</a>
+            @if (_isOpen)
+            {
+                <a href="#register" class="btn btn--gold">Reserve Your Spot &rarr;</a>
+            }
+            else
+            {
+                <a href="#waitlist" class="btn btn--gold">Join Next Class Waitlist &rarr;</a>
+            }
             <a href="#experience" class="btn btn--ghost">Explore the Experience</a>
         </div>
     </div>
@@ -63,15 +94,85 @@
    They are plain static HTML &mdash; copy them verbatim.
    ======================================================================== *@
 
-@* ---------- REGISTRATION (interactive island) ---------- *@
-<section class="section register" id="register">
-    <div class="container">
-        <RegistrationForm @rendermode="InteractiveServer" />
-    </div>
-</section>
+@if (_isOpen)
+{
+    @* ---------- REGISTRATION ---------- *@
+    <section class="section register" id="register">
+        <div class="container">
+            <RegistrationForm />
+        </div>
+    </section>
+}
+else
+{
+    @* ---------- COMING SOON & WAITLIST ---------- *@
+    <section class="section register" id="waitlist">
+        <div class="container">
+            <div class="form-panel">
+                <p class="eyebrow" style="text-align:center;">[ Next Session ]</p>
+                <h2>Class Coming Soon</h2>
+                <p class="sub">
+                    Registration for the current session is now closed. Join our waitlist to be first in line when Ziare announces his next class and exclusive workshop dates.
+                </p>
+                <NewsletterForm />
+            </div>
+        </div>
+    </section>
+}
 
 @* ========================================================================
    PASTE FROM index.html HERE: #faq section (static markup is fine for now)
    ======================================================================== *@
+
+@code {
+    private PeriodicTimer? _timer;
+    private CancellationTokenSource? _cts;
+    private TimeSpan _timeRemaining;
+    private bool _isOpen;
+
+    protected override void OnInitialized()
+    {
+        _isOpen = Schedule.RegistrationIsOpen;
+        _timeRemaining = Schedule.TimeRemaining;
+
+        if (_isOpen)
+        {
+            _cts = new CancellationTokenSource();
+            _timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            _ = RunTimerAsync(_cts.Token);
+        }
+    }
+
+    private async Task RunTimerAsync(CancellationToken token)
+    {
+        try
+        {
+            while (_timer is not null && await _timer.WaitForNextTickAsync(token))
+            {
+                var wasOpen = _isOpen;
+                _isOpen = Schedule.RegistrationIsOpen;
+                _timeRemaining = Schedule.TimeRemaining;
+
+                await InvokeAsync(StateHasChanged);
+
+                if (!_isOpen && wasOpen)
+                {
+                    break;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when component is disposed
+        }
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _timer?.Dispose();
+    }
+}
 
 

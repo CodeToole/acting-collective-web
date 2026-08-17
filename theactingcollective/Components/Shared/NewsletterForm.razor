@@ -1,0 +1,61 @@
+@using theactingcollective.Models
+@using theactingcollective.Services
+@inject IRegistrationStore Store
+@inject ILogger<NewsletterForm> Logger
+
+@if (!_submitted)
+{
+    <EditForm Model="_model" OnValidSubmit="HandleSubmitAsync">
+        <DataAnnotationsValidator />
+
+        <div class="field">
+            <label for="waitlistName">Your Name</label>
+            <InputText id="waitlistName" class="input" @bind-Value="_model.Name" placeholder="Enter your full name" />
+            <ValidationMessage For="() => _model.Name" class="form-error" style="display:block;" />
+        </div>
+
+        <div class="field">
+            <label for="waitlistEmail">Email Address</label>
+            <InputText id="waitlistEmail" class="input" @bind-Value="_model.Email" placeholder="actor@example.com" />
+            <ValidationMessage For="() => _model.Email" class="form-error" style="display:block;" />
+        </div>
+
+        <button type="submit" class="btn btn--gold btn--block" disabled="@_busy">
+            @(_busy ? "Joining..." : "Notify Me About Next Class")
+        </button>
+    </EditForm>
+}
+else
+{
+    <div class="form-success is-visible" role="status" aria-live="polite">
+        <div class="icon">&#10003;</div>
+        <h3 style="font-size:1.6rem; margin-bottom: 0.5rem; text-transform: uppercase;">You're on the Waitlist</h3>
+        <p class="muted">
+            Thanks, @_model.Name! We've saved your info. You'll be the first to know when Ziare announces new class dates and seats.
+        </p>
+    </div>
+}
+
+@code {
+    private WaitlistSignup _model = new();
+    private bool _submitted;
+    private bool _busy;
+
+    private async Task HandleSubmitAsync()
+    {
+        _busy = true;
+        try
+        {
+            await Store.AddToWaitlistAsync(_model.Name, _model.Email);
+            _submitted = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to submit waitlist signup for {Email}", _model.Email);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

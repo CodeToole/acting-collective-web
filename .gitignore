@@ -1,5 +1,17 @@
 bin/
 obj/
 .vs/
+
+# Local appsettings / secrets
 appsettings.Development.json
 *.Development.json
+secrets.json
+**/secrets.json
+
+# .NET user secrets
+**/.microsoft/usersecrets/
+**/.usersecrets/
+
+# Local Azure emulator generated files
+__azurite_*.json
+AzuriteConfig

@@ -46,6 +46,16 @@ public class InMemoryRegistrationStore : IRegistrationStore
         return Task.FromResult(_data.GetValueOrDefault(id));
     }
 
+    public Task<Registration?> SetPaidAsync(string id, bool paid)
+    {
+        if (_data.TryGetValue(id, out var reg))
+        {
+            reg.Paid = paid;
+            reg.PaidAt = paid ? DateTimeOffset.Now : null;
+        }
+        return Task.FromResult(_data.GetValueOrDefault(id));
+    }
+
     public Task<Registration> AddWalkInAsync(string fullName, string? contact)
     {
         var parts = fullName.Trim().Split(' ', 2);
@@ -61,6 +71,26 @@ public class InMemoryRegistrationStore : IRegistrationStore
             CheckedInAt = DateTimeOffset.Now,
             AgeConfirmed = true,
             CommsConsent = true
+        };
+        _data[reg.Id] = reg;
+        return Task.FromResult(reg);
+    }
+
+    public Task<Registration> AddToWaitlistAsync(string fullName, string email)
+    {
+        var parts = (fullName ?? string.Empty).Trim().Split(' ', 2);
+        var reg = new Registration
+        {
+            FirstName = parts.ElementAtOrDefault(0) ?? fullName ?? string.Empty,
+            LastName = parts.ElementAtOrDefault(1) ?? string.Empty,
+            Email = (email ?? string.Empty).Trim(),
+            Phone = "N/A",
+            ExperienceLevel = "Newsletter",
+            RegType = "waitlist",
+            WantsNewsletter = true,
+            AgeConfirmed = true,
+            CommsConsent = true,
+            CreatedAt = DateTimeOffset.UtcNow
         };
         _data[reg.Id] = reg;
         return Task.FromResult(reg);

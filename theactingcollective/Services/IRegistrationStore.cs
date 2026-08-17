@@ -18,7 +18,13 @@ public interface IRegistrationStore
     /// <summary>Mark a registration as checked in and stamp the time. Returns null if not found.</summary>
     Task<Registration?> CheckInAsync(string id);
 
+    /// <summary>Set the paid flag (and PaidAt timestamp when marking paid). Returns null if not found.</summary>
+    Task<Registration?> SetPaidAsync(string id, bool paid);
+
     /// <summary>Add an on-site walk-in that is already checked in.</summary>
     Task<Registration> AddWalkInAsync(string fullName, string? contact);
+
+    /// <summary>Add a name and email to the waitlist / newsletter for future classes.</summary>
+    Task<Registration> AddToWaitlistAsync(string name, string email);
 }
 

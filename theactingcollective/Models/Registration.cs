@@ -40,10 +40,14 @@ public class Registration
     [Range(typeof(bool), "true", "true", ErrorMessage = "Please agree to receive class communication.")]
     public bool CommsConsent { get; set; }
 
+    public bool WantsNewsletter { get; set; }
+
     // Class-day + admin fields
     public string RegType { get; set; } = "standard";      // standard | vip | walkin
     public bool CheckedIn { get; set; }
     public DateTimeOffset? CheckedInAt { get; set; }
+    public bool Paid { get; set; }
+    public DateTimeOffset? PaidAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     // Convenience helpers used by the roster UI
