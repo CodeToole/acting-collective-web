@@ -301,7 +301,7 @@ else
 </style>
 
 @code {
-    private const string SessionKey = "staff-passcode-unlocked";
+    private const string SessionKey = "staff_unlocked";
     private List<Registration> _all = new();
     private string _filter = "all";
     private string _search = string.Empty;
@@ -309,15 +309,39 @@ else
     private string? _error;
     private bool _isUnlocked;
     private bool _isSubmitting;
+    private bool _sessionChecked;
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync()
     {
-        var result = await SessionStorage.GetAsync<bool>(SessionKey);
-        _isUnlocked = result.Success && result.Value;
+        _isUnlocked = false;
+        _sessionChecked = false;
+        return Task.CompletedTask;
+    }
 
-        if (_isUnlocked)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
         {
-            await ReloadAsync();
+            return;
+        }
+
+        try
+        {
+            var result = await SessionStorage.GetAsync<bool>(SessionKey);
+            if (result.Success && result.Value)
+            {
+                _isUnlocked = true;
+                await ReloadAsync();
+            }
+        }
+        catch
+        {
+            _isUnlocked = false;
+        }
+        finally
+        {
+            _sessionChecked = true;
+            StateHasChanged();
         }
     }
 
